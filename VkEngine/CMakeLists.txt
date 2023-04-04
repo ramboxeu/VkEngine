@@ -1,4 +1,4 @@
-find_package(SDL REQUIRED 2.0)
+find_package(SDL2 REQUIRED)
 find_package(Vulkan 1.3 REQUIRED)
 
 add_library(vkengine SHARED
@@ -6,6 +6,5 @@ add_library(vkengine SHARED
     src/engine/VkEngineApp.cpp
 )
 
-target_link_libraries(vkengine PUBLIC ${Vulkan_LIBRARIES} ${SDL_LIBRARIES})
-target_include_directories(vkengine PUBLIC include ${Vulkan_INCLUDE_DIRS} ${SLD_INCLUDE_DIRS})
-
+target_link_libraries(vkengine PUBLIC ${Vulkan_LIBRARIES} ${SDL2_LIBRARIES})
+target_include_directories(vkengine PRIVATE include ${Vulkan_INCLUDE_DIRS} ${SLD_INCLUDE_DIRS})

@@ -3,4 +3,4 @@ add_executable(gears
 )
 
 target_link_libraries(gears PRIVATE vkengine)
-target_include_directories(gears PRIVATE VkEngine/include) 
+target_include_directories(gears PRIVATE ${CMAKE_SOURCE_DIR}/VkEngine/include)
