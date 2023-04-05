@@ -11,8 +11,14 @@ int main(int argc, char* argv[]) {
     std::cout << "[GEARS]: Launching Gears\n";
 
     GearsApp app{};
-    if (app.create(1024, 720, "Gears"))
-        app.run();
+    vke::utils::Result<void, vke::EngineError> result = app.create(1024, 720, "Gears");
+
+    if (!result) {
+        std::cerr << "[GEARS] [FATAL]: " << result.getError() << '\n';
+        return  1;
+    }
+
+    app.run();
 
     std::cout << "[GEARS]: Bye!\n";
     return 0;

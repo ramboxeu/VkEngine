@@ -4,6 +4,9 @@
 #include <SDL2/SDL_video.h>
 #include <SDL2/SDL.h>
 
+#include "engine/EngineError.hpp"
+#include "engine/utils/Result.hpp"
+
 namespace vke {
     class VkEngineApp {
         SDL_Window* mWindow;
@@ -15,7 +18,7 @@ namespace vke {
         VkEngineApp();
         ~VkEngineApp();
 
-        bool create(int width, int height, const char* title);
+        vke::utils::Result<void, vke::EngineError> create(int width, int height, const char* title);
         void run();
     };
 }

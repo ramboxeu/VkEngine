@@ -4,6 +4,10 @@ find_package(Vulkan 1.3 REQUIRED)
 add_library(vkengine SHARED
     include/engine/VkEngineApp.hpp
     src/engine/VkEngineApp.cpp
+    include/engine/EngineError.hpp
+    src/engine/EngineError.cpp
+    include/engine/utils/Result.hpp
+    src/engine/utils/Result.cpp
 )
 
 target_link_libraries(vkengine PUBLIC ${Vulkan_LIBRARIES} ${SDL2_LIBRARIES})

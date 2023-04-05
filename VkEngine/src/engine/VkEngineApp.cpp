@@ -1,6 +1,6 @@
 #include <SDL2/SDL.h>
 
-#include <engine/VkEngineApp.hpp>
+#include "engine/VkEngineApp.hpp"
 
 namespace vke {
     VkEngineApp::VkEngineApp() : mWindow{nullptr}, mRunning{false} {
@@ -12,12 +12,12 @@ namespace vke {
         SDL_Quit();
     }
 
-    bool VkEngineApp::create(int width, int height, const char* title) {
+    utils::Result<void, EngineError> VkEngineApp::create(int width, int height, const char* title) {
         mWindow = SDL_CreateWindow(title, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, width, height, SDL_WINDOW_VULKAN);
         if (!mWindow)
-            return false;
+            return utils::Result<void, EngineError>::error(EngineError::fromSdlError(SDL_GetError()));
 
-        return true;
+        return utils::Result<void, EngineError>::ok();
     }
 
     void VkEngineApp::run() {
