@@ -4,16 +4,49 @@
 #include <memory>
 #include <iostream>
 
+#define TRY(expr) if (auto result = expr; !result) return result; else
+
 namespace vke::utils {
 
     template<typename T, typename E>
     class Result {
+        struct ErrorMarker {};
+
     public:
+        class Error {
+            E mError;
+
+        public:
+            Error(E&& error) : mError{std::move(error)} {
+            }
+
+            Error(const E& error) : mError{error} {
+            }
+        };
+
         enum class Kind {
             NONE,
             OK,
             ERROR
         };
+
+        Result(T&& ok) noexcept : mOk{std::move(ok)}, mKind{Kind::OK} {
+        }
+
+        Result(const T& ok) : mOk{ok}, mKind{Kind::OK} {
+        }
+
+        Result(E&& error, ErrorMarker _) : mError{std::move(error)}, mKind{Kind::ERROR} {
+        }
+
+        Result(const E& error, ErrorMarker _) : mError{error}, mKind{Kind::ERROR} {
+        }
+
+        Result(const Error& wrapped) : mError{wrapped.mError}, mKind{Kind::ERROR} {
+        }
+
+        Result(Error&& wrapped) : mError{std::move(wrapped.mError)}, mKind{Kind::ERROR} {
+        }
 
         Result(const Result<T, E>& other) : mKind{other.mKind} {
             switch(other.mKind) {
@@ -121,6 +154,14 @@ namespace vke::utils {
             return isOk();
         }
 
+        operator Result<void, E>() const& {
+            return isOk() ? Result<void, E>() : Result<void, E>(mError);
+        }
+
+        operator Result<void, E>() && {
+            return isOk() ? Result<void, E>() : Result<void, E>(std::move(mError));
+        }
+
         static Result<T, E> ok(T&& ok) {
             return Result<T, E>(std::move(ok));
         }
@@ -138,19 +179,6 @@ namespace vke::utils {
         }
 
     protected:
-        struct ErrorMarker {};
-
-        Result(T&& ok) noexcept : mOk{std::move(ok)}, mKind{Kind::OK} {
-        }
-
-        Result(const T& ok) : mOk{ok}, mKind{Kind::OK} {
-        }
-
-        Result(E&& error, ErrorMarker _) : mError{std::move(error)}, mKind{Kind::ERROR} {
-        }
-
-        Result(const E& error, ErrorMarker _) : mError{error}, mKind{Kind::ERROR} {
-        }
 
         void swap(Result<T, E>&& other) noexcept {
             switch(other.mKind) {
@@ -220,7 +248,6 @@ namespace vke::utils {
             return Result<void, E>(error);
         }
 
-    private:
         Result() : Result<OkMarker, E>(OkMarker{}) {
         }
 
