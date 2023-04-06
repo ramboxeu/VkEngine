@@ -8,17 +8,22 @@
 #include "engine/utils/Result.hpp"
 
 namespace vke {
+
+    template<typename T>
+    using EngineResult = utils::Result<T, EngineError>;
+
     class VkEngineApp {
         SDL_Window* mWindow;
         bool mRunning;
 
         void handleWindowEvent(SDL_Event& event);
         void cleanup();
+        EngineResult<void> createWindow(int width, int height, const char* title);
     public:
         VkEngineApp();
         ~VkEngineApp();
 
-        vke::utils::Result<void, vke::EngineError> create(int width, int height, const char* title);
+        EngineResult<void> create(int width, int height, const char* title);
         void run();
     };
 }

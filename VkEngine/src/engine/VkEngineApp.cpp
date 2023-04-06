@@ -12,10 +12,8 @@ namespace vke {
         SDL_Quit();
     }
 
-    utils::Result<void, EngineError> VkEngineApp::create(int width, int height, const char* title) {
-        mWindow = SDL_CreateWindow(title, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, width, height, SDL_WINDOW_VULKAN);
-        if (!mWindow)
-            return utils::Result<void, EngineError>::error(EngineError::fromSdlError(SDL_GetError()));
+    EngineResult<void> VkEngineApp::create(int width, int height, const char* title) {
+        TRY(createWindow(width, height, title));
 
         return utils::Result<void, EngineError>::ok();
     }
@@ -44,5 +42,15 @@ namespace vke {
     void VkEngineApp::cleanup() {
         SDL_DestroyWindow(mWindow);
         mWindow = nullptr;
+    }
+
+    EngineResult<void> VkEngineApp::createWindow(int width, int height, const char *title) {
+        mWindow = SDL_CreateWindow(title, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, width, height, SDL_WINDOW_VULKAN);
+
+        if (!mWindow) {
+            return EngineError::fromSdlError(SDL_GetError());
+        }
+
+        return {};
     }
 };
