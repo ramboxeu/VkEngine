@@ -3,6 +3,8 @@
 
 #include <string>
 #include <ostream>
+#include <vector>
+#include <vulkan/vulkan.h>
 
 namespace vke {
 
@@ -10,7 +12,9 @@ namespace vke {
     public:
         enum class Kind {
             NONE,
-            SDL
+            SDL,
+            VULKAN,
+            EXTENSIONS_NOT_PRESENT,
         };
 
         EngineError();
@@ -23,8 +27,12 @@ namespace vke {
         friend std::ostream& operator<<(std::ostream& stream, EngineError& error);
 
         static EngineError fromSdlError(const char* error);
+        static EngineError fromVkError(VkResult result);
+        static EngineError extensionsNotPresent(std::vector<const char*> extensions);
     private:
         EngineError(std::string&& str, Kind kind);
+        EngineError(VkResult result, Kind kind);
+        EngineError(std::vector<const char*>&& extensions, Kind kind);
 
         void swap(EngineError&& other) noexcept;
         void copy(const EngineError& other);
@@ -32,6 +40,8 @@ namespace vke {
 
         union {
             std::string mMessage;
+            VkResult mResult;
+            std::vector<const char*> mExtensions;
         };
         Kind mKind;
     };
