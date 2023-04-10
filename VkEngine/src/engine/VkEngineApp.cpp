@@ -1,7 +1,7 @@
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_vulkan.h>
-#include <vector>
 
+#include "engine/vk/proxies.hpp"
 #include "engine/VkEngineApp.hpp"
 
 namespace vke {
@@ -43,6 +43,7 @@ namespace vke {
     }
 
     void VkEngineApp::cleanup() {
+        vke::vk::vkDestroyDebugUtilsMessengerEXT(mInstance, mMessenger, nullptr);
         vkDestroyInstance(mInstance, nullptr);
 
         SDL_DestroyWindow(mWindow);
@@ -59,7 +60,9 @@ namespace vke {
         return {};
     }
 
-    EngineResult<void> VkEngineApp::createInstance(const char* name) {
+    static VKAPI_ATTR VkBool32 VKAPI_CALL onVulkanDebugMessage2(VkDebugUtilsMessageSeverityFlagBitsEXT severity, VkDebugUtilsMessageTypeFlagsEXT type, const VkDebugUtilsMessengerCallbackDataEXT* message, void* data);
+
+        EngineResult<void> VkEngineApp::createInstance(const char* name) {
         VkApplicationInfo appInfo{};
         appInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
         appInfo.pApplicationName = name;
@@ -73,15 +76,33 @@ namespace vke {
             return extsResults;
 
         std::vector<const char*> extensions = extsResults.getOk();
+        std::vector<const char*> layers{"VK_LAYER_KHRONOS_validation"};
+        extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
+
+        TRY(checkExtensionsPresence(layers, extensions));
 
         VkInstanceCreateInfo createInfo{};
+        createInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
         createInfo.pApplicationInfo = &appInfo;
-        createInfo.enabledLayerCount = 0;
-        createInfo.ppEnabledLayerNames = nullptr;
+        createInfo.enabledLayerCount = layers.size();
+        createInfo.ppEnabledLayerNames = layers.data();
         createInfo.enabledExtensionCount = extensions.size();
         createInfo.ppEnabledExtensionNames = extensions.data();
 
+        VkDebugUtilsMessengerCreateInfoEXT debugMessengerCreateInfo{};
+        debugMessengerCreateInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
+        debugMessengerCreateInfo.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
+        debugMessengerCreateInfo.messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
+        debugMessengerCreateInfo.pfnUserCallback = onVulkanDebugMessage;
+        debugMessengerCreateInfo.pUserData = nullptr;
+
+        createInfo.pNext = &debugMessengerCreateInfo;
+
         if (VkResult result = vkCreateInstance(&createInfo, nullptr, &mInstance)) {
+            return EngineError::fromVkError(result);
+        }
+
+        if (VkResult result = vke::vk::vkCreateDebugUtilsMessengerEXT(mInstance, &debugMessengerCreateInfo, nullptr, &mMessenger)) {
             return EngineError::fromVkError(result);
         }
 
@@ -95,48 +116,96 @@ namespace vke {
         }
 
         std::vector<const char*> extensions;
-        extensions.reserve(count + 1);
+        extensions.resize(count);
         if (!SDL_Vulkan_GetInstanceExtensions(mWindow, &count, extensions.data())) {
             return EngineResult<std::vector<const char*>>::error(EngineError::fromSdlError(SDL_GetError()));
         }
 
-        if (auto result = checkExtensionsPresence(extensions); !result) {
-            return EngineResult<std::vector<const char*>>::error(result.getError());
-        } else {
-            return extensions;
-        }
+        return extensions;
     }
 
-    EngineResult<void> VkEngineApp::checkExtensionsPresence(const std::vector<const char*>& extensions) {
-        uint32_t count;
-        if (VkResult result = vkEnumerateInstanceExtensionProperties(nullptr, &count, nullptr)) {
-            return EngineError::fromVkError(result);
-        }
-
-        std::vector<VkExtensionProperties> available;
-        available.reserve(count);
-        if (VkResult result = vkEnumerateInstanceExtensionProperties(nullptr, &count, available.data())) {
-            return EngineError::fromVkError(result);
-        }
-
+    EngineResult<void> VkEngineApp::checkExtensionsPresence(std::optional<std::vector<const char*>> layers, const std::vector<const char*>& extensions) {
         std::vector<const char*> required{extensions};
-        for (auto it = required.begin(); it != required.end();) {
-            const char* name = *it;
 
-            for (const VkExtensionProperties& properties : available) {
-                if (strcmp(name, properties.extensionName) == 0) {
-                    required.erase(it);
-                    break;
-                }
+        if (layers.has_value()) {
+            for (const char* layer : layers.value()) {
+                TRY(checkExtensionsPresence(layer, required));
             }
-
-            it++;
         }
+
+        TRY(checkExtensionsPresence(nullptr, required));
 
         if (!required.empty()) {
             return EngineError::extensionsNotPresent(std::move(required));
         }
 
         return {};
+    }
+
+    EngineResult<void> VkEngineApp::checkExtensionsPresence(const char* layer, std::vector<const char*>& required) {
+        uint32_t count;
+        if (VkResult result = vkEnumerateInstanceExtensionProperties(layer, &count, nullptr)) {
+            return EngineError::fromVkError(result);
+        }
+
+        std::vector<VkExtensionProperties> available;
+        available.resize(count);
+        if (VkResult result = vkEnumerateInstanceExtensionProperties(layer, &count, available.data())) {
+            return EngineError::fromVkError(result);
+        }
+
+        for (auto it = required.begin(); it != required.end();) {
+            const char* name = *it;
+
+            bool advanced = false;
+            for (const VkExtensionProperties& properties : available) {
+                if (strcmp(name, properties.extensionName) == 0) {
+                    it = required.erase(it);
+                    advanced = true;
+                    break;
+                }
+            }
+
+            if (!advanced) it++;
+        }
+
+        return {};
+    }
+
+    VKAPI_ATTR VkBool32 VKAPI_CALL VkEngineApp::onVulkanDebugMessage(VkDebugUtilsMessageSeverityFlagBitsEXT severity, VkDebugUtilsMessageTypeFlagsEXT type, const VkDebugUtilsMessengerCallbackDataEXT* message, void* data) {
+        if (severity < VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT)
+            return VK_FALSE;
+
+        std::cout << "[ENGINE] ";
+
+        switch (severity) {
+            case VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT:
+                std::cout << "[DEBUG]: ";
+                break;
+            case VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT:
+                std::cout << "[INFO]: ";
+                break;
+            case VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT:
+                std::cout << "[WARN]: ";
+                break;
+            case VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT:
+                std::cout << "[ERROR]: ";
+                break;
+        }
+
+        if (type & VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT) {
+            std::cout << "[Vulkan/General] ";
+        }
+
+        if (type & VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT) {
+            std::cout << "[Vulkan/Validation] ";
+        }
+
+        if (type & VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT) {
+            std::cout << "[Vulkan/Performance] ";
+        }
+
+        std::cout << message->pMessage << '\n';
+        return VK_FALSE;
     }
 }

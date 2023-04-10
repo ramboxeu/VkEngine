@@ -73,7 +73,7 @@ namespace vke {
                     mResult = other.mResult;
                     break;
                 case Kind::EXTENSIONS_NOT_PRESENT:
-                    mExtensions = other.mExtensions;
+                    mExtensions = std::move(other.mExtensions);
                     break;
             }
         }

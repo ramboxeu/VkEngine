@@ -8,7 +8,9 @@ add_library(vkengine SHARED
     src/engine/EngineError.cpp
     include/engine/utils/Result.hpp
     src/engine/utils/Result.cpp
+    src/engine/vk/proxies.hpp
+    src/engine/vk/proxies.cpp
 )
 
 target_link_libraries(vkengine PUBLIC ${Vulkan_LIBRARIES} ${SDL2_LIBRARIES})
-target_include_directories(vkengine PRIVATE include ${Vulkan_INCLUDE_DIRS} ${SLD_INCLUDE_DIRS})
+target_include_directories(vkengine PRIVATE include src ${Vulkan_INCLUDE_DIRS} ${SLD_INCLUDE_DIRS})

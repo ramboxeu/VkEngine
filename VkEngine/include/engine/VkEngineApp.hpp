@@ -7,6 +7,7 @@
 #include <vulkan/vulkan.h>
 
 #include <vector>
+#include <optional>
 
 #include "engine/EngineError.hpp"
 #include "engine/utils/Result.hpp"
@@ -20,13 +21,17 @@ namespace vke {
         SDL_Window* mWindow;
         bool mRunning;
         VkInstance mInstance;
+        VkDebugUtilsMessengerEXT mMessenger;
 
         void handleWindowEvent(SDL_Event& event);
         void cleanup();
         EngineResult<void> createWindow(int width, int height, const char* title);
         EngineResult<void> createInstance(const char* name);
         EngineResult<std::vector<const char*>> getInstanceExtensions();
-        EngineResult<void> checkExtensionsPresence(const std::vector<const char*>& extensions);
+        EngineResult<void> checkExtensionsPresence(std::optional<std::vector<const char*>> layers, const std::vector<const char*>& extensions);
+        EngineResult<void> checkExtensionsPresence(const char* layers, std::vector<const char*>& extensions);
+
+        VKAPI_ATTR static VKAPI_CALL VkBool32 onVulkanDebugMessage(VkDebugUtilsMessageSeverityFlagBitsEXT severity, VkDebugUtilsMessageTypeFlagsEXT type, const VkDebugUtilsMessengerCallbackDataEXT* message, void* data);
     public:
         VkEngineApp();
         ~VkEngineApp();
