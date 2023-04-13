@@ -10,6 +10,8 @@ add_library(vkengine SHARED
     src/engine/utils/Result.cpp
     src/engine/vk/proxies.hpp
     src/engine/vk/proxies.cpp
+    include/engine/QueueFamilyIndexes.hpp
+    src/engine/QueueFamilyIndexes.cpp
 )
 
 target_link_libraries(vkengine PUBLIC ${Vulkan_LIBRARIES} ${SDL2_LIBRARIES})

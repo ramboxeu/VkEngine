@@ -4,6 +4,7 @@
 
 #include "engine/vk/proxies.hpp"
 #include "engine/VkEngineApp.hpp"
+#include "engine/QueueFamilyIndexes.hpp"
 
 namespace vke {
     VkEngineApp::VkEngineApp() : mWindow{nullptr}, mRunning{false} {
@@ -252,6 +253,10 @@ namespace vke {
     }
 
     int VkEngineApp::rankPhysicalDevice(VkPhysicalDevice device, VkPhysicalDeviceProperties properties, VkPhysicalDeviceFeatures features) {
+        if (!QueueFamilyIndexes::query(device).isComplete()) {
+            return 0;
+        }
+
         return 1;
     }
 }
