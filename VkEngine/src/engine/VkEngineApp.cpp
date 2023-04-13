@@ -1,5 +1,6 @@
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_vulkan.h>
+#include <map>
 
 #include "engine/vk/proxies.hpp"
 #include "engine/VkEngineApp.hpp"
@@ -17,6 +18,7 @@ namespace vke {
     EngineResult<void> VkEngineApp::create(int width, int height, const char* title) {
         TRY(createWindow(width, height, title));
         TRY(createInstance(title));
+        TRY(findPhysicalDevice());
 
         return utils::Result<void, EngineError>::ok();
     }
@@ -207,5 +209,49 @@ namespace vke {
 
         std::cout << message->pMessage << '\n';
         return VK_FALSE;
+    }
+
+    EngineResult<void> VkEngineApp::findPhysicalDevice() {
+        uint32_t count = 0;
+        if (VkResult result = vkEnumeratePhysicalDevices(mInstance, &count, nullptr)) {
+            return EngineError::fromVkError(result);
+        }
+
+        std::vector<VkPhysicalDevice> devices;
+        devices.resize(count);
+        if (VkResult result = vkEnumeratePhysicalDevices(mInstance, &count, devices.data())) {
+            return EngineError::fromVkError(result);
+        }
+
+        std::multimap<uint32_t, VkPhysicalDevice> map;
+        for (VkPhysicalDevice device : devices) {
+            VkPhysicalDeviceProperties properties;
+            vkGetPhysicalDeviceProperties(device, &properties);
+
+            VkPhysicalDeviceFeatures features;
+            vkGetPhysicalDeviceFeatures(device, &features);
+
+            int rank = rankPhysicalDevice(device, properties, features);
+
+            if (rank != 0) {
+                map.emplace(rank, device);
+            }
+        }
+
+        if (map.empty()) {
+            return EngineError::noDevice();
+        }
+
+        mPhysicalDevice = map.begin()->second;
+
+        VkPhysicalDeviceProperties properties;
+        vkGetPhysicalDeviceProperties(mPhysicalDevice, &properties);
+        std::cout << "[ENGINE] [DEBUG]: Found physical graphics device " << properties.deviceName << '\n';
+
+        return {};
+    }
+
+    int VkEngineApp::rankPhysicalDevice(VkPhysicalDevice device, VkPhysicalDeviceProperties properties, VkPhysicalDeviceFeatures features) {
+        return 1;
     }
 }

@@ -15,6 +15,7 @@ namespace vke {
             SDL,
             VULKAN,
             EXTENSIONS_NOT_PRESENT,
+            NO_DEVICE
         };
 
         EngineError();
@@ -29,10 +30,12 @@ namespace vke {
         static EngineError fromSdlError(const char* error);
         static EngineError fromVkError(VkResult result);
         static EngineError extensionsNotPresent(std::vector<const char*> extensions);
+        static EngineError noDevice();
     private:
         EngineError(std::string&& str, Kind kind);
         EngineError(VkResult result, Kind kind);
         EngineError(std::vector<const char*>&& extensions, Kind kind);
+        EngineError(Kind kind);
 
         void swap(EngineError&& other) noexcept;
         void copy(const EngineError& other);

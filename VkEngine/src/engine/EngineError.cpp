@@ -8,6 +8,7 @@ namespace vke {
     EngineError::EngineError(const EngineError& other) : mKind{other.mKind} {
         switch (other.mKind) {
             case Kind::NONE:
+            case Kind::NO_DEVICE:
                 break;
             case Kind::SDL:
                 new (&mMessage) std::string(other.mMessage);
@@ -24,6 +25,7 @@ namespace vke {
     EngineError::EngineError(EngineError&& other) noexcept : mKind{other.mKind} {
         switch (other.mKind) {
             case Kind::NONE:
+            case Kind::NO_DEVICE:
                 break;
             case Kind::SDL:
                 new (&mMessage) std::string(std::move(other.mMessage));
@@ -39,9 +41,9 @@ namespace vke {
 
     EngineError& EngineError::operator=(const EngineError& other) {
         if (&other != this) {
-            mKind = other.mKind;
             switch (other.mKind) {
                 case Kind::NONE:
+                case Kind::NO_DEVICE:
                     clear();
                     break;
                 case Kind::SDL:
@@ -54,6 +56,8 @@ namespace vke {
                     mExtensions = other.mExtensions;
                     break;
             }
+
+            mKind = other.mKind;
         }
 
         return *this;
@@ -61,9 +65,9 @@ namespace vke {
 
     EngineError& EngineError::operator=(EngineError&& other) noexcept {
         if (&other != this) {
-            mKind = other.mKind;
             switch (other.mKind) {
                 case Kind::NONE:
+                case Kind::NO_DEVICE:
                     clear();
                     break;
                 case Kind::SDL:
@@ -76,6 +80,8 @@ namespace vke {
                     mExtensions = std::move(other.mExtensions);
                     break;
             }
+
+            mKind = other.mKind;
         }
 
         return *this;
@@ -104,6 +110,9 @@ namespace vke {
                 }
                 stream << ']';
                 break;
+            case EngineError::Kind::NO_DEVICE:
+                stream << "[NoDevice] No suitable graphics device found";
+                break;
         }
 
         return stream;
@@ -121,6 +130,10 @@ namespace vke {
         return EngineError(std::move(extensions), Kind::EXTENSIONS_NOT_PRESENT);
     }
 
+    EngineError EngineError::noDevice() {
+        return EngineError(Kind::NO_DEVICE);
+    }
+
     EngineError::EngineError(std::string&& str, Kind kind) : mMessage{str}, mKind{kind} {
     }
 
@@ -128,6 +141,9 @@ namespace vke {
     }
 
     EngineError::EngineError(std::vector<const char*>&& extensions, Kind kind) : mExtensions{std::move(extensions)}, mKind{kind} {
+    }
+
+    EngineError::EngineError(Kind kind) : mKind{kind} {
     }
 
     void EngineError::swap(EngineError&& other) noexcept {
@@ -157,6 +173,7 @@ namespace vke {
         switch (mKind) {
             case Kind::NONE:
             case Kind::VULKAN:
+            case Kind::NO_DEVICE:
                 break;
             case Kind::SDL:
                 mMessage.std::string::~string();
