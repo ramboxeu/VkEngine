@@ -20,6 +20,7 @@ namespace vke {
         TRY(createWindow(width, height, title));
         TRY(createInstance(title));
         TRY(findPhysicalDevice());
+        TRY(createDevice());
 
         return utils::Result<void, EngineError>::ok();
     }
@@ -46,6 +47,8 @@ namespace vke {
     }
 
     void VkEngineApp::cleanup() {
+        vkDestroyDevice(mDevice, nullptr);
+
         vke::vk::vkDestroyDebugUtilsMessengerEXT(mInstance, mMessenger, nullptr);
         vkDestroyInstance(mInstance, nullptr);
 
@@ -256,5 +259,36 @@ namespace vke {
         }
 
         return 1;
+    }
+
+    EngineResult<void> VkEngineApp::createDevice() {
+        QueueFamilyIndexes indexes = QueueFamilyIndexes::query(mPhysicalDevice);
+
+        float priority = 1.0f;
+
+        std::vector<VkDeviceQueueCreateInfo> queueCreateInfos{1};
+
+        queueCreateInfos[0].sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+        queueCreateInfos[0].pQueuePriorities = &priority;
+        queueCreateInfos[0].queueFamilyIndex = indexes.getGraphics();
+        queueCreateInfos[0].queueCount = 1;
+
+        VkPhysicalDeviceFeatures features{};
+
+        VkDeviceCreateInfo createInfo{};
+        createInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
+        createInfo.pQueueCreateInfos = queueCreateInfos.data();
+        createInfo.queueCreateInfoCount = queueCreateInfos.size();
+        createInfo.pEnabledFeatures = &features;
+        createInfo.enabledExtensionCount = 0;
+        createInfo.enabledLayerCount = 0;
+
+        if (VkResult result = vkCreateDevice(mPhysicalDevice, &createInfo, nullptr, &mDevice)) {
+            return EngineError::fromVkError(result);
+        }
+
+        vkGetDeviceQueue(mDevice, indexes.getGraphics(), 0, &mGraphicsQueue);
+
+        return {};
     }
 }

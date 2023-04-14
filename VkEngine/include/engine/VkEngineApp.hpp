@@ -23,6 +23,8 @@ namespace vke {
         VkInstance mInstance;
         VkDebugUtilsMessengerEXT mMessenger;
         VkPhysicalDevice mPhysicalDevice;
+        VkDevice mDevice;
+        VkQueue mGraphicsQueue;
 
         void handleWindowEvent(SDL_Event& event);
         void cleanup();
@@ -33,6 +35,7 @@ namespace vke {
         EngineResult<void> checkExtensionsPresence(const char* layers, std::vector<const char*>& extensions);
         EngineResult<void> findPhysicalDevice();
         virtual int rankPhysicalDevice(VkPhysicalDevice device, VkPhysicalDeviceProperties properties, VkPhysicalDeviceFeatures features);
+        EngineResult<void> createDevice();
 
         VKAPI_ATTR static VKAPI_CALL VkBool32 onVulkanDebugMessage(VkDebugUtilsMessageSeverityFlagBitsEXT severity, VkDebugUtilsMessageTypeFlagsEXT type, const VkDebugUtilsMessengerCallbackDataEXT* message, void* data);
     public:
