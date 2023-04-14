@@ -15,7 +15,7 @@ int main(int argc, char* argv[]) {
 
     if (!result) {
         std::cerr << "[GEARS] [FATAL]: " << result.getError() << '\n';
-        return  1;
+        return 1;
     }
 
     app.run();

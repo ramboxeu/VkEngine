@@ -63,9 +63,7 @@ namespace vke {
         return {};
     }
 
-    static VKAPI_ATTR VkBool32 VKAPI_CALL onVulkanDebugMessage2(VkDebugUtilsMessageSeverityFlagBitsEXT severity, VkDebugUtilsMessageTypeFlagsEXT type, const VkDebugUtilsMessengerCallbackDataEXT* message, void* data);
-
-        EngineResult<void> VkEngineApp::createInstance(const char* name) {
+    EngineResult<void> VkEngineApp::createInstance(const char* name) {
         VkApplicationInfo appInfo{};
         appInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
         appInfo.pApplicationName = name;
