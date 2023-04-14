@@ -25,6 +25,7 @@ namespace vke {
         VkPhysicalDevice mPhysicalDevice;
         VkDevice mDevice;
         VkQueue mGraphicsQueue;
+        VkQueue mPresentQueue;
         VkSurfaceKHR mSurface;
 
         void handleWindowEvent(SDL_Event& event);

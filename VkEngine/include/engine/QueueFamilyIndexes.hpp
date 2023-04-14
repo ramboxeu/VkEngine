@@ -15,7 +15,7 @@ namespace vke {
             PRESENT = 0x4,
         };
 
-        static QueueFamilyIndexes query(VkPhysicalDevice device);
+        static QueueFamilyIndexes query(VkPhysicalDevice device, VkSurfaceKHR surface);
 
         bool isComplete() const;
         bool hasIndex(Index index) const;

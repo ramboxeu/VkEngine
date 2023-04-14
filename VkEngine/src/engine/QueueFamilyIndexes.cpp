@@ -3,7 +3,7 @@
 
 namespace vke {
 
-    QueueFamilyIndexes QueueFamilyIndexes::query(VkPhysicalDevice device) {
+    QueueFamilyIndexes QueueFamilyIndexes::query(VkPhysicalDevice device, VkSurfaceKHR surface) {
         uint32_t count;
         vkGetPhysicalDeviceQueueFamilyProperties(device, &count, nullptr);
 
@@ -13,6 +13,7 @@ namespace vke {
 
         uint32_t graphicsIndex;
         uint32_t computeIndex;
+        uint32_t presentIndex;
         uint32_t flags = 0;
         for (size_t i = 0, size = families.size(); i < size; i++) {
             VkQueueFamilyProperties family = families[i];
@@ -26,9 +27,16 @@ namespace vke {
                 computeIndex = i;
                 flags |= QueueFamilyIndexes::COMPUTE;
             }
+
+            VkBool32 surfaceSupported;
+            vkGetPhysicalDeviceSurfaceSupportKHR(device, i, surface, &surfaceSupported);
+            if (surfaceSupported) {
+                presentIndex = i;
+                flags |= QueueFamilyIndexes::PRESENT;
+            }
         }
 
-        return QueueFamilyIndexes{ flags, graphicsIndex, computeIndex, 0 };
+        return QueueFamilyIndexes{ flags, graphicsIndex, computeIndex, presentIndex };
     }
 
     bool QueueFamilyIndexes::isComplete() const {

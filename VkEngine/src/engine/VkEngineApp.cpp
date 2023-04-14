@@ -19,9 +19,9 @@ namespace vke {
     EngineResult<void> VkEngineApp::create(int width, int height, const char* title) {
         TRY(createWindow(width, height, title));
         TRY(createInstance(title));
+        TRY(createSurface());
         TRY(findPhysicalDevice());
         TRY(createDevice());
-        TRY(createSurface());
 
         return utils::Result<void, EngineError>::ok();
     }
@@ -257,7 +257,7 @@ namespace vke {
     }
 
     int VkEngineApp::rankPhysicalDevice(VkPhysicalDevice device, VkPhysicalDeviceProperties properties, VkPhysicalDeviceFeatures features) {
-        if (!QueueFamilyIndexes::query(device).isComplete()) {
+        if (!QueueFamilyIndexes::query(device, mSurface).isComplete()) {
             return 0;
         }
 
@@ -265,16 +265,24 @@ namespace vke {
     }
 
     EngineResult<void> VkEngineApp::createDevice() {
-        QueueFamilyIndexes indexes = QueueFamilyIndexes::query(mPhysicalDevice);
+        QueueFamilyIndexes indexes = QueueFamilyIndexes::query(mPhysicalDevice, mSurface);
 
         float priority = 1.0f;
 
-        std::vector<VkDeviceQueueCreateInfo> queueCreateInfos{1};
+        uint32_t queueCount = indexes.getGraphics() == indexes.getPresent() ? 1 : 2;
+        std::vector<VkDeviceQueueCreateInfo> queueCreateInfos{queueCount};
 
         queueCreateInfos[0].sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
         queueCreateInfos[0].pQueuePriorities = &priority;
         queueCreateInfos[0].queueFamilyIndex = indexes.getGraphics();
         queueCreateInfos[0].queueCount = 1;
+
+        if (queueCount > 1) {
+            queueCreateInfos[1].sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+            queueCreateInfos[1].pQueuePriorities = &priority;
+            queueCreateInfos[1].queueFamilyIndex = indexes.getPresent();
+            queueCreateInfos[1].queueCount = 1;
+        }
 
         VkPhysicalDeviceFeatures features{};
 
@@ -291,6 +299,15 @@ namespace vke {
         }
 
         vkGetDeviceQueue(mDevice, indexes.getGraphics(), 0, &mGraphicsQueue);
+
+        if (queueCount > 1) {
+            vkGetDeviceQueue(mDevice, indexes.getGraphics(), 0, &mPresentQueue);
+        } else {
+            mPresentQueue = mGraphicsQueue;
+        }
+
+        return {};
+    }
 
     EngineResult<void> VkEngineApp::createSurface() {
         if (!SDL_Vulkan_CreateSurface(mWindow, mInstance, &mSurface)) {
