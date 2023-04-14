@@ -21,6 +21,7 @@ namespace vke {
         TRY(createInstance(title));
         TRY(findPhysicalDevice());
         TRY(createDevice());
+        TRY(createSurface());
 
         return utils::Result<void, EngineError>::ok();
     }
@@ -47,6 +48,8 @@ namespace vke {
     }
 
     void VkEngineApp::cleanup() {
+        vkDestroySurfaceKHR(mInstance, mSurface, nullptr);
+
         vkDestroyDevice(mDevice, nullptr);
 
         vke::vk::vkDestroyDebugUtilsMessengerEXT(mInstance, mMessenger, nullptr);
@@ -288,6 +291,11 @@ namespace vke {
         }
 
         vkGetDeviceQueue(mDevice, indexes.getGraphics(), 0, &mGraphicsQueue);
+
+    EngineResult<void> VkEngineApp::createSurface() {
+        if (!SDL_Vulkan_CreateSurface(mWindow, mInstance, &mSurface)) {
+            return EngineError::fromSdlError(SDL_GetError());
+        }
 
         return {};
     }
