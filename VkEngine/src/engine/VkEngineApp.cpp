@@ -136,11 +136,11 @@ namespace vke {
 
         if (layers.has_value()) {
             for (const char* layer : layers.value()) {
-                TRY(checkExtensionsPresence(layer, required));
+                TRY(checkInstanceExtensionsPresence(layer, required));
             }
         }
 
-        TRY(checkExtensionsPresence(nullptr, required));
+        TRY(checkInstanceExtensionsPresence(nullptr, required));
 
         if (!required.empty()) {
             return EngineError::extensionsNotPresent(std::move(required));
@@ -149,7 +149,7 @@ namespace vke {
         return {};
     }
 
-    EngineResult<void> VkEngineApp::checkExtensionsPresence(const char* layer, std::vector<const char*>& required) {
+    EngineResult<void> VkEngineApp::checkInstanceExtensionsPresence(const char* layer, std::vector<const char*>& required) {
         uint32_t count;
         if (VkResult result = vkEnumerateInstanceExtensionProperties(layer, &count, nullptr)) {
             return EngineError::fromVkError(result);
@@ -161,6 +161,25 @@ namespace vke {
             return EngineError::fromVkError(result);
         }
 
+        return checkExtensionsPresence(required, available);
+    }
+
+    EngineResult<void> VkEngineApp::checkDeviceExtensionsPresence(VkPhysicalDevice device, const char* layer, std::vector<const char*>& required) {
+        uint32_t count;
+        if (VkResult result = vkEnumerateDeviceExtensionProperties(device, layer, &count, nullptr)) {
+            return EngineError::fromVkError(result);
+        }
+
+        std::vector<VkExtensionProperties> available;
+        available.resize(count);
+        if (VkResult result = vkEnumerateDeviceExtensionProperties(device, layer, &count, available.data())) {
+            return EngineError::fromVkError(result);
+        }
+
+        return checkExtensionsPresence(required, available);
+    }
+
+    EngineResult<void> VkEngineApp::checkExtensionsPresence(std::vector<const char*>& required, const std::vector<VkExtensionProperties>& available) {
         for (auto it = required.begin(); it != required.end();) {
             const char* name = *it;
 
@@ -261,6 +280,15 @@ namespace vke {
             return 0;
         }
 
+        if (auto exts = getDeviceExtensions()) {
+            auto extensions = exts.getOk();
+
+            if (!(checkDeviceExtensionsPresence(device, nullptr, extensions) && extensions.empty()))
+                return 0;
+        } else {
+            return 0;
+        }
+
         return 1;
     }
 
@@ -284,6 +312,9 @@ namespace vke {
             queueCreateInfos[1].queueCount = 1;
         }
 
+        std::vector<const char*> extensions;
+        TRY(getDeviceExtensions()) extensions = result.getOk();
+
         VkPhysicalDeviceFeatures features{};
 
         VkDeviceCreateInfo createInfo{};
@@ -291,7 +322,8 @@ namespace vke {
         createInfo.pQueueCreateInfos = queueCreateInfos.data();
         createInfo.queueCreateInfoCount = queueCreateInfos.size();
         createInfo.pEnabledFeatures = &features;
-        createInfo.enabledExtensionCount = 0;
+        createInfo.enabledExtensionCount = extensions.size();
+        createInfo.ppEnabledExtensionNames = extensions.data();
         createInfo.enabledLayerCount = 0;
 
         if (VkResult result = vkCreateDevice(mPhysicalDevice, &createInfo, nullptr, &mDevice)) {
@@ -315,5 +347,9 @@ namespace vke {
         }
 
         return {};
+    }
+
+    EngineResult<std::vector<const char*>> VkEngineApp::getDeviceExtensions() {
+        return std::vector<const char*>{ VK_KHR_SWAPCHAIN_EXTENSION_NAME };
     }
 }

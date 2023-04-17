@@ -34,11 +34,14 @@ namespace vke {
         EngineResult<void> createInstance(const char* name);
         EngineResult<std::vector<const char*>> getInstanceExtensions();
         EngineResult<void> checkExtensionsPresence(std::optional<std::vector<const char*>> layers, const std::vector<const char*>& extensions);
-        EngineResult<void> checkExtensionsPresence(const char* layers, std::vector<const char*>& extensions);
+        EngineResult<void> checkExtensionsPresence(std::vector<const char*>& required, const std::vector<VkExtensionProperties>& available);
+        EngineResult<void> checkDeviceExtensionsPresence(VkPhysicalDevice device, const char* layer, std::vector<const char*>& required);
+        EngineResult<void> checkInstanceExtensionsPresence(const char* layer, std::vector<const char*>& required);
         EngineResult<void> findPhysicalDevice();
         virtual int rankPhysicalDevice(VkPhysicalDevice device, VkPhysicalDeviceProperties properties, VkPhysicalDeviceFeatures features);
         EngineResult<void> createDevice();
         EngineResult<void> createSurface();
+        EngineResult<std::vector<const char*>> getDeviceExtensions();
 
         VKAPI_ATTR static VKAPI_CALL VkBool32 onVulkanDebugMessage(VkDebugUtilsMessageSeverityFlagBitsEXT severity, VkDebugUtilsMessageTypeFlagsEXT type, const VkDebugUtilsMessengerCallbackDataEXT* message, void* data);
     public:
