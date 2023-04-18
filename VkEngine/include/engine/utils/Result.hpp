@@ -150,6 +150,14 @@ namespace vke::utils {
             return getError();
         }
 
+        T* operator->() {
+            if (isOk())
+                return &mOk;
+
+            std::cerr << "[ENGINE] [FATAL]: operator->() called, but Result is not OK\n";
+            std::terminate();
+        }
+
         operator bool() const {
             return isOk();
         }

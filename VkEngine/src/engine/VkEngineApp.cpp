@@ -370,16 +370,16 @@ namespace vke {
     }
 
     EngineResult<void> VkEngineApp::createSwapchain() {
-        if (auto result = SwapchainDetails::query(mPhysicalDevice, mSurface)) {
-            VkSurfaceFormatKHR format = result.getOk().chooseFormat();
-            VkPresentModeKHR mode = result.getOk().chooseMode();
+        if (auto details = SwapchainDetails::query(mPhysicalDevice, mSurface)) {
+            VkSurfaceFormatKHR format = details->chooseFormat();
+            VkPresentModeKHR mode = details->chooseMode();
 
             int width;
             int height;
             SDL_GetWindowSize(mWindow, &width, &height);
 
-            VkExtent2D extent = result.getOk().chooseExtent(width, height);
-            uint32_t minImageCount = result.getOk().chooseImageCount();
+            VkExtent2D extent = details->chooseExtent(width, height);
+            uint32_t minImageCount = details->chooseImageCount();
 
             QueueFamilyIndexes indexes = QueueFamilyIndexes::query(mPhysicalDevice, mSurface);
 
@@ -403,7 +403,7 @@ namespace vke {
             }
 
             createInfo.pQueueFamilyIndices = queueFamilyIndexes;
-            createInfo.preTransform = result.getOk().getCurrentTransform();
+            createInfo.preTransform = details->getCurrentTransform();
             createInfo.presentMode = mode;
             createInfo.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
             createInfo.clipped = VK_TRUE;
@@ -428,7 +428,7 @@ namespace vke {
 
             return {};
         } else {
-            return result;
+            return details;
         }
     }
 
