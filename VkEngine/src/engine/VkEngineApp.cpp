@@ -24,6 +24,7 @@ namespace vke {
         TRY(findPhysicalDevice());
         TRY(createDevice());
         TRY(createSwapchain());
+        TRY(createImageViews());
 
         return utils::Result<void, EngineError>::ok();
     }
@@ -50,7 +51,14 @@ namespace vke {
     }
 
     void VkEngineApp::cleanup() {
+        for (const VkImageView& view : mSwapchainImageViews) {
+            vkDestroyImageView(mDevice, view, nullptr);
+        }
+        mSwapchainImageViews.clear();
+
         vkDestroySwapchainKHR(mDevice, mSwapchain, nullptr);
+        mSwapchainImages.clear();
+
         vkDestroySurfaceKHR(mInstance, mSurface, nullptr);
 
         vkDestroyDevice(mDevice, nullptr);
@@ -396,6 +404,7 @@ namespace vke {
 
             createInfo.pQueueFamilyIndices = queueFamilyIndexes;
             createInfo.preTransform = result.getOk().getCurrentTransform();
+            createInfo.presentMode = mode;
             createInfo.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
             createInfo.clipped = VK_TRUE;
             createInfo.oldSwapchain = VK_NULL_HANDLE;
@@ -407,9 +416,46 @@ namespace vke {
             mSwapchainExtent = extent;
             mSwapchainImageFormat = format.format;
 
+            uint32_t imageCount;
+            if (VkResult result = vkGetSwapchainImagesKHR(mDevice, mSwapchain, &imageCount, nullptr)) {
+                return EngineError::fromVkError(result);
+            }
+
+            mSwapchainImages.resize(imageCount);
+            if (VkResult result = vkGetSwapchainImagesKHR(mDevice, mSwapchain, &imageCount, mSwapchainImages.data())) {
+                return EngineError::fromVkError(result);
+            }
+
             return {};
         } else {
             return result;
         }
+    }
+
+    EngineResult<void> VkEngineApp::createImageViews() {
+        mSwapchainImageViews.resize(mSwapchainImages.size());
+
+        for (size_t i = 0, size = mSwapchainImages.size(); i < size; i++) {
+            VkImageViewCreateInfo createInfo{};
+            createInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+            createInfo.image = mSwapchainImages[i];
+            createInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+            createInfo.format = mSwapchainImageFormat;
+            createInfo.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
+            createInfo.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
+            createInfo.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
+            createInfo.components.a = VK_COMPONENT_SWIZZLE_IDENTITY;
+            createInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+            createInfo.subresourceRange.baseMipLevel = 0;
+            createInfo.subresourceRange.levelCount = 1;
+            createInfo.subresourceRange.baseArrayLayer = 0;
+            createInfo.subresourceRange.layerCount = 1;
+
+            if (VkResult result = vkCreateImageView(mDevice, &createInfo, nullptr, &mSwapchainImageViews[i])) {
+                return EngineError::fromVkError(result);
+            }
+        }
+
+        return {};
     }
 }

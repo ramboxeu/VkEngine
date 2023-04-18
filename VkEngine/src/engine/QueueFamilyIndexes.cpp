@@ -40,7 +40,7 @@ namespace vke {
     }
 
     bool QueueFamilyIndexes::isComplete() const {
-        return mFlags & GRAPHICS;
+        return mFlags & GRAPHICS && mFlags & PRESENT;
     }
 
     bool QueueFamilyIndexes::hasIndex(Index index) const {

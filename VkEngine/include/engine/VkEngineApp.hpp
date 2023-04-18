@@ -30,6 +30,8 @@ namespace vke {
         VkExtent2D mSwapchainExtent;
         VkFormat mSwapchainImageFormat;
         VkSwapchainKHR mSwapchain;
+        std::vector<VkImage> mSwapchainImages;
+        std::vector<VkImageView> mSwapchainImageViews;
 
         void handleWindowEvent(SDL_Event& event);
         void cleanup();
@@ -46,6 +48,7 @@ namespace vke {
         EngineResult<void> createSurface();
         EngineResult<std::vector<const char*>> getDeviceExtensions();
         EngineResult<void> createSwapchain();
+        EngineResult<void> createImageViews();
 
         VKAPI_ATTR static VKAPI_CALL VkBool32 onVulkanDebugMessage(VkDebugUtilsMessageSeverityFlagBitsEXT severity, VkDebugUtilsMessageTypeFlagsEXT type, const VkDebugUtilsMessengerCallbackDataEXT* message, void* data);
     public:
