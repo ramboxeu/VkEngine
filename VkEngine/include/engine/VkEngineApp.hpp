@@ -27,6 +27,9 @@ namespace vke {
         VkQueue mGraphicsQueue;
         VkQueue mPresentQueue;
         VkSurfaceKHR mSurface;
+        VkExtent2D mSwapchainExtent;
+        VkFormat mSwapchainImageFormat;
+        VkSwapchainKHR mSwapchain;
 
         void handleWindowEvent(SDL_Event& event);
         void cleanup();
@@ -42,6 +45,7 @@ namespace vke {
         EngineResult<void> createDevice();
         EngineResult<void> createSurface();
         EngineResult<std::vector<const char*>> getDeviceExtensions();
+        EngineResult<void> createSwapchain();
 
         VKAPI_ATTR static VKAPI_CALL VkBool32 onVulkanDebugMessage(VkDebugUtilsMessageSeverityFlagBitsEXT severity, VkDebugUtilsMessageTypeFlagsEXT type, const VkDebugUtilsMessengerCallbackDataEXT* message, void* data);
     public:

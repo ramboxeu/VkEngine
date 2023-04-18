@@ -12,6 +12,8 @@ add_library(vkengine SHARED
     src/engine/vk/proxies.cpp
     include/engine/QueueFamilyIndexes.hpp
     src/engine/QueueFamilyIndexes.cpp
+    include/engine/SwapchainDetails.hpp
+    src/engine/SwapchainDetails.cpp
 )
 
 target_link_libraries(vkengine PUBLIC ${Vulkan_LIBRARIES} ${SDL2_LIBRARIES})

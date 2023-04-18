@@ -5,6 +5,7 @@
 #include "engine/vk/proxies.hpp"
 #include "engine/VkEngineApp.hpp"
 #include "engine/QueueFamilyIndexes.hpp"
+#include "engine/SwapchainDetails.hpp"
 
 namespace vke {
     VkEngineApp::VkEngineApp() : mWindow{nullptr}, mRunning{false} {
@@ -22,6 +23,7 @@ namespace vke {
         TRY(createSurface());
         TRY(findPhysicalDevice());
         TRY(createDevice());
+        TRY(createSwapchain());
 
         return utils::Result<void, EngineError>::ok();
     }
@@ -48,6 +50,7 @@ namespace vke {
     }
 
     void VkEngineApp::cleanup() {
+        vkDestroySwapchainKHR(mDevice, mSwapchain, nullptr);
         vkDestroySurfaceKHR(mInstance, mSurface, nullptr);
 
         vkDestroyDevice(mDevice, nullptr);
@@ -289,6 +292,11 @@ namespace vke {
             return 0;
         }
 
+        if (auto details = SwapchainDetails::query(device, mSurface)) {
+            if (!details.getOk().isConfigurable())
+                return 0;
+        }
+
         return 1;
     }
 
@@ -351,5 +359,57 @@ namespace vke {
 
     EngineResult<std::vector<const char*>> VkEngineApp::getDeviceExtensions() {
         return std::vector<const char*>{ VK_KHR_SWAPCHAIN_EXTENSION_NAME };
+    }
+
+    EngineResult<void> VkEngineApp::createSwapchain() {
+        if (auto result = SwapchainDetails::query(mPhysicalDevice, mSurface)) {
+            VkSurfaceFormatKHR format = result.getOk().chooseFormat();
+            VkPresentModeKHR mode = result.getOk().chooseMode();
+
+            int width;
+            int height;
+            SDL_GetWindowSize(mWindow, &width, &height);
+
+            VkExtent2D extent = result.getOk().chooseExtent(width, height);
+            uint32_t minImageCount = result.getOk().chooseImageCount();
+
+            QueueFamilyIndexes indexes = QueueFamilyIndexes::query(mPhysicalDevice, mSurface);
+
+            VkSwapchainCreateInfoKHR createInfo{};
+            createInfo.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
+            createInfo.surface = mSurface;
+            createInfo.minImageCount = minImageCount;
+            createInfo.imageFormat = format.format;
+            createInfo.imageColorSpace = format.colorSpace;
+            createInfo.imageArrayLayers = 1;
+            createInfo.imageExtent = extent;
+            createInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+
+            uint32_t queueFamilyIndexes[2] = { indexes.getGraphics(), indexes.getPresent() };
+            if (indexes.getGraphics() == indexes.getPresent()) {
+                createInfo.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
+                createInfo.queueFamilyIndexCount = 1;
+            } else {
+                createInfo.imageSharingMode = VK_SHARING_MODE_CONCURRENT;
+                createInfo.queueFamilyIndexCount = 2;
+            }
+
+            createInfo.pQueueFamilyIndices = queueFamilyIndexes;
+            createInfo.preTransform = result.getOk().getCurrentTransform();
+            createInfo.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
+            createInfo.clipped = VK_TRUE;
+            createInfo.oldSwapchain = VK_NULL_HANDLE;
+
+            if (VkResult result = vkCreateSwapchainKHR(mDevice, &createInfo, nullptr, &mSwapchain)) {
+                return EngineError::fromVkError(result);
+            }
+
+            mSwapchainExtent = extent;
+            mSwapchainImageFormat = format.format;
+
+            return {};
+        } else {
+            return result;
+        }
     }
 }
