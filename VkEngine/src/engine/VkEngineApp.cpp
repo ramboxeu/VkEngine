@@ -25,6 +25,7 @@ namespace vke {
         TRY(createDevice());
         TRY(createSwapchain());
         TRY(createImageViews());
+        TRY(createRenderPass());
 
         return utils::Result<void, EngineError>::ok();
     }
@@ -51,6 +52,8 @@ namespace vke {
     }
 
     void VkEngineApp::cleanup() {
+        vkDestroyRenderPass(mDevice, mRenderPass, nullptr);
+
         for (const VkImageView& view : mSwapchainImageViews) {
             vkDestroyImageView(mDevice, view, nullptr);
         }
@@ -454,6 +457,42 @@ namespace vke {
             if (VkResult result = vkCreateImageView(mDevice, &createInfo, nullptr, &mSwapchainImageViews[i])) {
                 return EngineError::fromVkError(result);
             }
+        }
+
+        return {};
+    }
+
+    EngineResult<void> VkEngineApp::createRenderPass() {
+        VkAttachmentDescription colorAttachment{};
+        colorAttachment.format = mSwapchainImageFormat;
+        colorAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
+        colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+        colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+        colorAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+        colorAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+        colorAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+        colorAttachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+
+        VkAttachmentReference colorAttachmentRef{};
+        colorAttachmentRef.attachment = 0;
+        colorAttachmentRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
+        VkSubpassDescription subpass{};
+        subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+        subpass.inputAttachmentCount = 0;
+        subpass.pInputAttachments = nullptr;
+        subpass.colorAttachmentCount = 1;
+        subpass.pColorAttachments = &colorAttachmentRef;
+
+        VkRenderPassCreateInfo createInfo{};
+        createInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
+        createInfo.pAttachments = &colorAttachment;
+        createInfo.attachmentCount = 1;
+        createInfo.subpassCount = 1;
+        createInfo.pSubpasses = &subpass;
+
+        if (VkResult result = vkCreateRenderPass(mDevice, &createInfo, nullptr, &mRenderPass)) {
+            return EngineError::fromVkError(result);
         }
 
         return {};
