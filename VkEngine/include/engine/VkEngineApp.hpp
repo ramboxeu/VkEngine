@@ -11,11 +11,9 @@
 
 #include "engine/EngineError.hpp"
 #include "engine/utils/Result.hpp"
+#include "engine/EngineResult.hpp"
 
 namespace vke {
-
-    template<typename T>
-    using EngineResult = utils::Result<T, EngineError>;
 
     class VkEngineApp {
         SDL_Window* mWindow;

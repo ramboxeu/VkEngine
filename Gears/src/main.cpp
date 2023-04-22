@@ -1,6 +1,7 @@
 #define SDL_SET_MAIN_HANDLED
 
 #include <engine/VkEngineApp.hpp>
+#include <engine/EngineResult.hpp>
 
 #include <iostream>
 
