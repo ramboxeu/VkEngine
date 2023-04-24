@@ -14,8 +14,10 @@ namespace vke {
             NONE,
             SDL,
             VULKAN,
+            OS_ERROR,
             EXTENSIONS_NOT_PRESENT,
-            NO_DEVICE
+            NO_DEVICE,
+            MISSING_VERTEX_SHADER
         };
 
         EngineError();
@@ -31,10 +33,13 @@ namespace vke {
         static EngineError fromVkError(VkResult result);
         static EngineError extensionsNotPresent(std::vector<const char*> extensions);
         static EngineError noDevice();
+        static EngineError fromOsError(std::error_code code);
+        static EngineError missingVertexShader();
     private:
         EngineError(std::string&& str, Kind kind);
         EngineError(VkResult result, Kind kind);
         EngineError(std::vector<const char*>&& extensions, Kind kind);
+        EngineError(std::error_code code, Kind kind);
         EngineError(Kind kind);
 
         void swap(EngineError&& other) noexcept;
@@ -45,6 +50,7 @@ namespace vke {
             std::string mMessage;
             VkResult mResult;
             std::vector<const char*> mExtensions;
+            std::error_code mErrorCode;
         };
         Kind mKind;
     };

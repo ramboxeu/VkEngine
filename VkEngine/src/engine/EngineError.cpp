@@ -9,6 +9,7 @@ namespace vke {
         switch (other.mKind) {
             case Kind::NONE:
             case Kind::NO_DEVICE:
+            case Kind::MISSING_VERTEX_SHADER:
                 break;
             case Kind::SDL:
                 new (&mMessage) std::string(other.mMessage);
@@ -19,6 +20,9 @@ namespace vke {
             case Kind::EXTENSIONS_NOT_PRESENT:
                 new (&mExtensions) std::vector<const char*>(other.mExtensions);
                 break;
+            case Kind::OS_ERROR:
+                new (&mErrorCode) std::error_code(other.mErrorCode);
+                break;
         }
     }
 
@@ -26,6 +30,7 @@ namespace vke {
         switch (other.mKind) {
             case Kind::NONE:
             case Kind::NO_DEVICE:
+            case Kind::MISSING_VERTEX_SHADER:
                 break;
             case Kind::SDL:
                 new (&mMessage) std::string(std::move(other.mMessage));
@@ -36,6 +41,9 @@ namespace vke {
             case Kind::EXTENSIONS_NOT_PRESENT:
                 new (&mExtensions) std::vector<const char*>(std::move(other.mExtensions));
                 break;
+            case Kind::OS_ERROR:
+                new (&mErrorCode) std::error_code(other.mErrorCode);
+                break;
         }
     }
 
@@ -44,6 +52,7 @@ namespace vke {
             switch (other.mKind) {
                 case Kind::NONE:
                 case Kind::NO_DEVICE:
+                case Kind::MISSING_VERTEX_SHADER:
                     clear();
                     break;
                 case Kind::SDL:
@@ -54,6 +63,9 @@ namespace vke {
                     break;
                 case Kind::EXTENSIONS_NOT_PRESENT:
                     mExtensions = other.mExtensions;
+                    break;
+                case Kind::OS_ERROR:
+                    mErrorCode = other.mErrorCode;
                     break;
             }
 
@@ -68,6 +80,7 @@ namespace vke {
             switch (other.mKind) {
                 case Kind::NONE:
                 case Kind::NO_DEVICE:
+                case Kind::MISSING_VERTEX_SHADER:
                     clear();
                     break;
                 case Kind::SDL:
@@ -78,6 +91,9 @@ namespace vke {
                     break;
                 case Kind::EXTENSIONS_NOT_PRESENT:
                     mExtensions = std::move(other.mExtensions);
+                    break;
+                case Kind::OS_ERROR:
+                    mErrorCode = other.mErrorCode;
                     break;
             }
 
@@ -113,6 +129,12 @@ namespace vke {
             case EngineError::Kind::NO_DEVICE:
                 stream << "[NoDevice] No suitable graphics device found";
                 break;
+            case EngineError::Kind::OS_ERROR:
+                stream << "[OsError] " << error.mErrorCode.message();
+                break;
+            case EngineError::Kind::MISSING_VERTEX_SHADER:
+                stream << "[MissingVertexShaderError] Loaded shaders must include a vertex shader";
+                break;
         }
 
         return stream;
@@ -134,6 +156,14 @@ namespace vke {
         return EngineError(Kind::NO_DEVICE);
     }
 
+    EngineError EngineError::fromOsError(std::error_code code) {
+        return EngineError(code, Kind::OS_ERROR);
+    }
+
+    EngineError EngineError::missingVertexShader() {
+        return EngineError(Kind::MISSING_VERTEX_SHADER);
+    }
+
     EngineError::EngineError(std::string&& str, Kind kind) : mMessage{str}, mKind{kind} {
     }
 
@@ -141,6 +171,9 @@ namespace vke {
     }
 
     EngineError::EngineError(std::vector<const char*>&& extensions, Kind kind) : mExtensions{std::move(extensions)}, mKind{kind} {
+    }
+
+    EngineError::EngineError(std::error_code code, Kind kind) : mErrorCode{code}, mKind{kind} {
     }
 
     EngineError::EngineError(Kind kind) : mKind{kind} {
@@ -174,12 +207,16 @@ namespace vke {
             case Kind::NONE:
             case Kind::VULKAN:
             case Kind::NO_DEVICE:
+            case Kind::MISSING_VERTEX_SHADER:
                 break;
             case Kind::SDL:
                 mMessage.std::string::~string();
                 break;
             case Kind::EXTENSIONS_NOT_PRESENT:
                 mExtensions.std::vector<const char*>::~vector();
+                break;
+            case Kind::OS_ERROR:
+                mErrorCode.std::error_code::~error_code();
                 break;
         }
 

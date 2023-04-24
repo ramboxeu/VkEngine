@@ -26,6 +26,7 @@ namespace vke {
         TRY(createSwapchain());
         TRY(createImageViews());
         TRY(createRenderPass());
+        TRY(createShaderModules());
 
         return utils::Result<void, EngineError>::ok();
     }
@@ -52,6 +53,11 @@ namespace vke {
     }
 
     void VkEngineApp::cleanup() {
+        for (const auto& entry : mShaderModules) {
+            vkDestroyShaderModule(mDevice, entry.second.getHandle(), nullptr);
+        }
+        mShaderModules.clear();
+
         vkDestroyRenderPass(mDevice, mRenderPass, nullptr);
 
         for (const VkImageView& view : mSwapchainImageViews) {
@@ -493,6 +499,32 @@ namespace vke {
 
         if (VkResult result = vkCreateRenderPass(mDevice, &createInfo, nullptr, &mRenderPass)) {
             return EngineError::fromVkError(result);
+        }
+
+        return {};
+    }
+
+    EngineResult<void> VkEngineApp::createShaderModules() {
+        if (auto shaders = loadShaders()) {
+            if (!shaders->contains(VK_SHADER_STAGE_VERTEX_BIT)) {
+                return EngineError::missingVertexShader();
+            }
+
+            for (auto& entry : shaders.getOk()) {
+                VkShaderModuleCreateInfo createInfo{};
+                createInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
+                createInfo.codeSize = entry.second.getSize();
+                createInfo.pCode = entry.second.getCode();
+
+                VkShaderModule handle;
+                if (VkResult result = vkCreateShaderModule(mDevice, &createInfo, nullptr, &handle)) {
+                    return EngineError::fromVkError(result);
+                }
+
+                mShaderModules.emplace(entry.first, ShaderModule{ handle, std::move(entry.second.getEntrypoint()) });
+            }
+        } else {
+            return shaders;
         }
 
         return {};

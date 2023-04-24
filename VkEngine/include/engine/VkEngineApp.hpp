@@ -8,10 +8,13 @@
 
 #include <vector>
 #include <optional>
+#include <map>
 
 #include "engine/EngineError.hpp"
 #include "engine/utils/Result.hpp"
+#include "engine/ShaderFile.hpp"
 #include "engine/EngineResult.hpp"
+#include "ShaderModule.hpp"
 
 namespace vke {
 
@@ -31,6 +34,7 @@ namespace vke {
         std::vector<VkImage> mSwapchainImages;
         std::vector<VkImageView> mSwapchainImageViews;
         VkRenderPass mRenderPass;
+        std::map<VkShaderStageFlagBits, ShaderModule> mShaderModules;
 
         void handleWindowEvent(SDL_Event& event);
         void cleanup();
@@ -42,15 +46,20 @@ namespace vke {
         EngineResult<void> checkDeviceExtensionsPresence(VkPhysicalDevice device, const char* layer, std::vector<const char*>& required);
         EngineResult<void> checkInstanceExtensionsPresence(const char* layer, std::vector<const char*>& required);
         EngineResult<void> findPhysicalDevice();
-        virtual int rankPhysicalDevice(VkPhysicalDevice device, VkPhysicalDeviceProperties properties, VkPhysicalDeviceFeatures features);
         EngineResult<void> createDevice();
         EngineResult<void> createSurface();
         EngineResult<std::vector<const char*>> getDeviceExtensions();
         EngineResult<void> createSwapchain();
         EngineResult<void> createImageViews();
         EngineResult<void> createRenderPass();
+        EngineResult<void> createShaderModules();
 
         VKAPI_ATTR static VKAPI_CALL VkBool32 onVulkanDebugMessage(VkDebugUtilsMessageSeverityFlagBitsEXT severity, VkDebugUtilsMessageTypeFlagsEXT type, const VkDebugUtilsMessengerCallbackDataEXT* message, void* data);
+
+    protected:
+        virtual int rankPhysicalDevice(VkPhysicalDevice device, VkPhysicalDeviceProperties properties, VkPhysicalDeviceFeatures features);
+        virtual EngineResult<std::map<VkShaderStageFlagBits, ShaderFile>> loadShaders() = 0;
+
     public:
         VkEngineApp();
         ~VkEngineApp();

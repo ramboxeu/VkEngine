@@ -14,7 +14,11 @@ add_library(vkengine SHARED
     src/engine/QueueFamilyIndexes.cpp
     include/engine/SwapchainDetails.hpp
     src/engine/SwapchainDetails.cpp
+    include/engine/ShaderFile.hpp
+    src/engine/ShaderFile.cpp
     include/engine/EngineResult.hpp
+    include/engine/ShaderModule.hpp
+    src/engine/ShaderModule.cpp
 )
 
 target_link_libraries(vkengine PUBLIC ${Vulkan_LIBRARIES} ${SDL2_LIBRARIES})
