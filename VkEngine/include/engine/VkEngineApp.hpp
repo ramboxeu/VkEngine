@@ -34,6 +34,8 @@ namespace vke {
         std::vector<VkImage> mSwapchainImages;
         std::vector<VkImageView> mSwapchainImageViews;
         VkRenderPass mRenderPass;
+        VkPipelineLayout mPipelineLayout;
+        VkPipeline mPipeline;
         std::map<VkShaderStageFlagBits, ShaderModule> mShaderModules;
 
         void handleWindowEvent(SDL_Event& event);
@@ -53,6 +55,7 @@ namespace vke {
         EngineResult<void> createImageViews();
         EngineResult<void> createRenderPass();
         EngineResult<void> createShaderModules();
+        EngineResult<void> createPipeline();
 
         VKAPI_ATTR static VKAPI_CALL VkBool32 onVulkanDebugMessage(VkDebugUtilsMessageSeverityFlagBitsEXT severity, VkDebugUtilsMessageTypeFlagsEXT type, const VkDebugUtilsMessengerCallbackDataEXT* message, void* data);
 
