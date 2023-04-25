@@ -4,10 +4,10 @@
 
 namespace vke {
 
-    ShaderFile::ShaderFile(Shader::Type type, std::string&& entrypoint, char* code, size_t size) : mType{type}, mEntrypoint{std::move(entrypoint)}, mCode{code}, mSize{size}  {
+    ShaderFile::ShaderFile(std::string&& entrypoint, char* code, size_t size) : mEntrypoint{std::move(entrypoint)}, mCode{code}, mSize{size}  {
     }
 
-    ShaderFile::ShaderFile() : mType{}, mEntrypoint{}, mCode{nullptr}, mSize{0} {
+    ShaderFile::ShaderFile() : mEntrypoint{}, mCode{nullptr}, mSize{0} {
     }
 
     ShaderFile::~ShaderFile() noexcept {
@@ -15,12 +15,12 @@ namespace vke {
         mSize = 0;
     }
 
-    ShaderFile::ShaderFile(const ShaderFile& other) : mType{other.mType}, mEntrypoint{other.mEntrypoint}, mSize{other.mSize} {
+    ShaderFile::ShaderFile(const ShaderFile& other) :  mEntrypoint{other.mEntrypoint}, mSize{other.mSize} {
         mCode = new(std::align_val_t{4}) char[mSize];
         memcpy(mCode, other.mCode, mSize);
     }
 
-    ShaderFile::ShaderFile(ShaderFile&& other) noexcept : mType{other.mType}, mEntrypoint{std::move(other.mEntrypoint)}, mCode{other.mCode}, mSize{other.mSize} {
+    ShaderFile::ShaderFile(ShaderFile&& other) noexcept : mEntrypoint{std::move(other.mEntrypoint)}, mCode{other.mCode}, mSize{other.mSize} {
         other.mCode = nullptr;
         other.mSize = 0;
     }
@@ -29,7 +29,6 @@ namespace vke {
         if (this != &other) {
             this->ShaderFile::~ShaderFile();
 
-            mType = other.mType;
             mEntrypoint = other.mEntrypoint;
             mCode = new(std::align_val_t{4}) char[mSize];
             mSize = other.mSize;
@@ -44,7 +43,6 @@ namespace vke {
         if (this != &other) {
             this->ShaderFile::~ShaderFile();
 
-            mType = other.mType;
             mEntrypoint = std::move(other.mEntrypoint);
             mCode = other.mCode;
             mSize = other.mSize;
@@ -56,7 +54,7 @@ namespace vke {
         return *this;
     }
 
-    EngineResult<ShaderFile> ShaderFile::loadFromFile(Shader::Type type, const std::filesystem::path& path, std::string entrypoint) {
+    EngineResult<ShaderFile> ShaderFile::loadFromFile(const std::filesystem::path& path, std::string entrypoint) {
         std::fstream file(path);
 
         if (file.fail()) {
@@ -95,11 +93,7 @@ namespace vke {
             return EngineResult<ShaderFile>::error(EngineError::fromOsError({errno, std::generic_category() }));
         }
 
-        return ShaderFile(type, std::move(entrypoint), buffer, bytes);
-    }
-
-    Shader::Type ShaderFile::getType() const {
-        return mType;
+        return ShaderFile(std::move(entrypoint), buffer, bytes);
     }
 
     char* ShaderFile::getBytes() const {
