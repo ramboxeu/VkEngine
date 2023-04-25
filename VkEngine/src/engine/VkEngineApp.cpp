@@ -28,6 +28,7 @@ namespace vke {
         TRY(createRenderPass());
         TRY(createShaderModules());
         TRY(createPipeline());
+        TRY(createFramebuffers());
 
         return utils::Result<void, EngineError>::ok();
     }
@@ -54,6 +55,11 @@ namespace vke {
     }
 
     void VkEngineApp::cleanup() {
+        for (const VkFramebuffer& framebuffer : mFramebuffers) {
+            vkDestroyFramebuffer(mDevice, framebuffer, nullptr);
+        }
+        mFramebuffers.clear();
+
         for (const auto& entry : mShaderModules) {
             vkDestroyShaderModule(mDevice, entry.second.getHandle(), nullptr);
         }
@@ -652,6 +658,27 @@ namespace vke {
 
         if (VkResult result = vkCreateGraphicsPipelines(mDevice, VK_NULL_HANDLE, 1, &createInfo, nullptr, &mPipeline)) {
             return EngineError::fromVkError(result);
+        }
+
+        return {};
+    }
+
+    EngineResult<void> VkEngineApp::createFramebuffers() {
+        mFramebuffers.resize(mSwapchainImageViews.size());
+
+        for (size_t i = 0, size = mSwapchainImageViews.size(); i < size; i++) {
+            VkFramebufferCreateInfo createInfo{};
+            createInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+            createInfo.renderPass = mRenderPass;
+            createInfo.attachmentCount = 1;
+            createInfo.pAttachments = &mSwapchainImageViews[i];
+            createInfo.width = mSwapchainExtent.width;
+            createInfo.height = mSwapchainExtent.height;
+            createInfo.layers = 1;
+
+            if (VkResult result = vkCreateFramebuffer(mDevice, &createInfo, nullptr, &mFramebuffers[i])) {
+                return EngineError::fromVkError(result);
+            }
         }
 
         return {};
