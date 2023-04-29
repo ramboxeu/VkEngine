@@ -38,6 +38,11 @@ namespace vke {
         VkPipeline mPipeline;
         std::map<VkShaderStageFlagBits, ShaderModule> mShaderModules;
         std::vector<VkFramebuffer> mFramebuffers;
+        VkCommandPool mCommandPool;
+        std::vector<VkCommandBuffer> mCommandBuffers;
+        std::vector<VkSemaphore> mFrameSemaphores;
+        std::vector<VkFence> mFrameFences;
+        int mCurrentFrame = 0;
 
         void handleWindowEvent(SDL_Event& event);
         void cleanup();
@@ -58,19 +63,27 @@ namespace vke {
         EngineResult<void> createShaderModules();
         EngineResult<void> createPipeline();
         EngineResult<void> createFramebuffers();
+        EngineResult<void> createCommandPool();
+        EngineResult<void> createCommandBuffers();
+        EngineResult<void> createSemaphores();
+        EngineResult<void> createFences();
+        EngineResult<void> renderFrame();
 
         VKAPI_ATTR static VKAPI_CALL VkBool32 onVulkanDebugMessage(VkDebugUtilsMessageSeverityFlagBitsEXT severity, VkDebugUtilsMessageTypeFlagsEXT type, const VkDebugUtilsMessengerCallbackDataEXT* message, void* data);
 
     protected:
+        static constexpr int MAX_CONCURRENT_FRAMES = 2;
+
         virtual int rankPhysicalDevice(VkPhysicalDevice device, VkPhysicalDeviceProperties properties, VkPhysicalDeviceFeatures features);
         virtual EngineResult<std::map<VkShaderStageFlagBits, ShaderFile>> loadShaders() = 0;
+        virtual void render(VkCommandBuffer cmdBuffer);
 
     public:
         VkEngineApp();
         ~VkEngineApp();
 
         EngineResult<void> create(int width, int height, const char* title);
-        void run();
+        EngineResult<void> run();
     };
 }
 

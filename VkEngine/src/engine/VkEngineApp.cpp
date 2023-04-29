@@ -29,11 +29,15 @@ namespace vke {
         TRY(createShaderModules());
         TRY(createPipeline());
         TRY(createFramebuffers());
+        TRY(createCommandPool());
+        TRY(createCommandBuffers());
+        TRY(createSemaphores());
+        TRY(createFences());
 
         return utils::Result<void, EngineError>::ok();
     }
 
-    void VkEngineApp::run() {
+    EngineResult<void> VkEngineApp::run() {
         mRunning = true;
 
         while (mRunning) {
@@ -41,9 +45,17 @@ namespace vke {
             while (SDL_PollEvent(&event)) {
                 handleWindowEvent(event);
             }
+
+            if (EngineResult<void> result = renderFrame(); !result) {
+                mRunning = false;
+                cleanup();
+                return result;
+            }
         }
 
         cleanup();
+
+        return {};
     }
 
     void VkEngineApp::handleWindowEvent(SDL_Event &event) {
@@ -55,6 +67,22 @@ namespace vke {
     }
 
     void VkEngineApp::cleanup() {
+        // Finish whatever device is doing right now before cleanup
+        vkDeviceWaitIdle(mDevice);
+
+        for (VkSemaphore semaphore : mFrameSemaphores) {
+            vkDestroySemaphore(mDevice, semaphore, nullptr);
+        }
+        mFrameSemaphores.clear();
+
+        for (VkFence fence : mFrameFences) {
+            vkDestroyFence(mDevice, fence, nullptr);
+        }
+        mFrameFences.clear();
+
+        vkFreeCommandBuffers(mDevice, mCommandPool, mCommandBuffers.size(), mCommandBuffers.data());
+        vkDestroyCommandPool(mDevice, mCommandPool, nullptr);
+
         for (const VkFramebuffer& framebuffer : mFramebuffers) {
             vkDestroyFramebuffer(mDevice, framebuffer, nullptr);
         }
@@ -683,4 +711,176 @@ namespace vke {
 
         return {};
     }
+
+    EngineResult<void> VkEngineApp::createCommandPool() {
+        VkCommandPoolCreateInfo createInfo{};
+        createInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+        createInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
+        createInfo.queueFamilyIndex = QueueFamilyIndexes::query(mPhysicalDevice, mSurface).getGraphics();
+
+        if (VkResult result = vkCreateCommandPool(mDevice, &createInfo, nullptr, &mCommandPool)) {
+            return EngineError::fromVkError(result);
+        }
+
+        return {};
+    }
+
+    EngineResult<void> VkEngineApp::createCommandBuffers() {
+        size_t size = MAX_CONCURRENT_FRAMES;
+        mCommandBuffers.resize(size);
+
+        VkCommandBufferAllocateInfo allocateInfo{};
+        allocateInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+        allocateInfo.commandPool = mCommandPool;
+        allocateInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+        allocateInfo.commandBufferCount = size;
+
+        if (VkResult result = vkAllocateCommandBuffers(mDevice, &allocateInfo, mCommandBuffers.data())) {
+            return EngineError::fromVkError(result);
+        }
+
+        return {};
+    }
+
+    EngineResult<void> VkEngineApp::renderFrame() {
+        VkFence frameAvailableFence = mFrameFences[mCurrentFrame];
+
+        // FENCE: wait for queue to finish
+        if (VkResult result = vkWaitForFences(mDevice, 1, &frameAvailableFence, VK_TRUE, UINT64_MAX)) {
+            return EngineError::fromVkError(result);
+        }
+
+        // FENCE: reset, we are processing this frame
+        if (VkResult result = vkResetFences(mDevice, 1, &frameAvailableFence)) {
+            return EngineError::fromVkError(result);
+        }
+
+        VkSemaphore imageAvailableSemaphore = mFrameSemaphores[mCurrentFrame * 2];
+        VkSemaphore frameRenderedSemaphore = mFrameSemaphores[(mCurrentFrame * 2) + 1];
+
+        // acquire next swapchain image
+        uint32_t imageIndex;
+        if (VkResult result = vkAcquireNextImageKHR(mDevice, mSwapchain, UINT32_MAX, imageAvailableSemaphore, VK_NULL_HANDLE, &imageIndex)) {
+            return EngineError::fromVkError(result);
+        }
+
+        VkCommandBuffer cmdBuffer = mCommandBuffers[mCurrentFrame];
+        // reset buffer
+        if (VkResult result = vkResetCommandBuffer(cmdBuffer, 0)) {
+            return EngineError::fromVkError(result);
+        }
+
+        // begin command buffer
+        VkCommandBufferBeginInfo beginInfo{};
+        beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+        beginInfo.pInheritanceInfo = nullptr;
+        if (VkResult result = vkBeginCommandBuffer(cmdBuffer, &beginInfo)) {
+            return EngineError::fromVkError(result);
+        }
+
+        // setup dynamic state
+        VkViewport viewport{};
+        viewport.x = 0;
+        viewport.y = 0;
+        viewport.width = static_cast<float>(mSwapchainExtent.width);
+        viewport.height = static_cast<float>(mSwapchainExtent.height);
+        viewport.minDepth = 0.0f;
+        viewport.maxDepth = 1.0f;
+        vkCmdSetViewport(cmdBuffer, 0, 1, &viewport);
+        VkRect2D scissors{};
+        scissors.offset.x = 0;
+        scissors.offset.y = 0;
+        scissors.extent = mSwapchainExtent;
+        vkCmdSetScissor(cmdBuffer, 0, 1, &scissors);
+        // bind pipeline
+        vkCmdBindPipeline(cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, mPipeline);
+        // begin render pass
+        VkClearValue clearValue{};
+        clearValue.color.float32[0] = 0.0;
+        clearValue.color.float32[1] = 0.0;
+        clearValue.color.float32[2] = 0.0;
+        clearValue.color.float32[3] = 1.0;
+        VkRenderPassBeginInfo renderPassBeginInfo{};
+        renderPassBeginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+        renderPassBeginInfo.renderPass = mRenderPass;
+        renderPassBeginInfo.framebuffer = mFramebuffers[imageIndex];
+        renderPassBeginInfo.renderArea = scissors;
+        renderPassBeginInfo.clearValueCount = 1;
+        renderPassBeginInfo.pClearValues = &clearValue;
+        vkCmdBeginRenderPass(cmdBuffer, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
+        // render
+        render(cmdBuffer);
+        // end render pass
+        vkCmdEndRenderPass(cmdBuffer);
+        // end command buffer
+        vkEndCommandBuffer(cmdBuffer);
+        // submit command buffer (resets frame busy fence, signals queue busy semaphore)
+        // SEMAPHORE: signal that frame is rendered, wait for swapchain image
+        // FENCE: signals when queue processing finishes
+        VkPipelineStageFlags waitStages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
+        VkSubmitInfo submitInfo{};
+        submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+        submitInfo.waitSemaphoreCount = 1;
+        submitInfo.pWaitSemaphores = &imageAvailableSemaphore;
+        submitInfo.pWaitDstStageMask = waitStages;
+        submitInfo.commandBufferCount = 1;
+        submitInfo.pCommandBuffers = &cmdBuffer;
+        submitInfo.signalSemaphoreCount = 1;
+        submitInfo.pSignalSemaphores = &frameRenderedSemaphore;
+        if (VkResult result = vkQueueSubmit(mGraphicsQueue, 1, &submitInfo, frameAvailableFence)) {
+            return EngineError::fromVkError(result);
+        }
+
+        // SEMAPHORE: wait for queue to finish
+        // preset
+        VkPresentInfoKHR presentInfo{};
+        presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
+        presentInfo.waitSemaphoreCount = 1;
+        presentInfo.pWaitSemaphores = &frameRenderedSemaphore;
+        presentInfo.swapchainCount = 1;
+        presentInfo.pSwapchains = &mSwapchain;
+        presentInfo.pImageIndices = &imageIndex;
+        if (VkResult result = vkQueuePresentKHR(mPresentQueue, &presentInfo)) {
+            return EngineError::fromVkError(result);
+        }
+
+        mCurrentFrame = (mCurrentFrame + 1) % MAX_CONCURRENT_FRAMES;
+
+        return {};
+    }
+
+    EngineResult<void> VkEngineApp::createSemaphores() {
+        size_t size = MAX_CONCURRENT_FRAMES * 2;
+        mFrameSemaphores.resize(size);
+
+        for (size_t i = 0; i < size; i++) {
+            VkSemaphoreCreateInfo createInfo{};
+            createInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+
+            if (VkResult result = vkCreateSemaphore(mDevice, &createInfo, nullptr, &mFrameSemaphores[i])) {
+                return EngineError::fromVkError(result);
+            }
+        }
+
+        return {};
+    }
+
+    EngineResult<void> VkEngineApp::createFences() {
+        size_t size = MAX_CONCURRENT_FRAMES;
+        mFrameFences.resize(size);
+
+        for (size_t i = 0; i < size; i++) {
+            VkFenceCreateInfo createInfo{};
+            createInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+            createInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
+
+            if (VkResult result = vkCreateFence(mDevice, &createInfo, nullptr, &mFrameFences[i])) {
+                return EngineError::fromVkError(result);
+            }
+        }
+
+        return {};
+    }
+
+    void VkEngineApp::render(VkCommandBuffer cmdBuffer) {}
 }
