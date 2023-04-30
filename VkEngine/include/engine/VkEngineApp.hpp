@@ -14,7 +14,9 @@
 #include "engine/utils/Result.hpp"
 #include "engine/ShaderFile.hpp"
 #include "engine/EngineResult.hpp"
-#include "ShaderModule.hpp"
+#include "engine/Buffer.hpp"
+#include "engine/ShaderModule.hpp"
+#include "engine/MemoryType.hpp"
 
 namespace vke {
 
@@ -43,6 +45,11 @@ namespace vke {
         std::vector<VkSemaphore> mFrameSemaphores;
         std::vector<VkFence> mFrameFences;
         int mCurrentFrame = 0;
+        MemoryType mSpeedyMemType;
+        MemoryType mStagingMemType;
+        MemoryType mUniversalMemType;
+        std::vector<VkBuffer> mBuffers;
+        std::vector<VkDeviceMemory> mMemoryAllocations;
 
         void handleWindowEvent(SDL_Event& event);
         void cleanup();
@@ -68,15 +75,24 @@ namespace vke {
         EngineResult<void> createSemaphores();
         EngineResult<void> createFences();
         EngineResult<void> renderFrame();
+        void setMemoryTypes();
 
         VKAPI_ATTR static VKAPI_CALL VkBool32 onVulkanDebugMessage(VkDebugUtilsMessageSeverityFlagBitsEXT severity, VkDebugUtilsMessageTypeFlagsEXT type, const VkDebugUtilsMessengerCallbackDataEXT* message, void* data);
 
     protected:
+        enum class BufferType {
+            SPEEDY,
+            STAGING,
+            UNIVERSAL
+        };
+
         static constexpr int MAX_CONCURRENT_FRAMES = 2;
 
         virtual int rankPhysicalDevice(VkPhysicalDevice device, VkPhysicalDeviceProperties properties, VkPhysicalDeviceFeatures features);
         virtual EngineResult<std::map<VkShaderStageFlagBits, ShaderFile>> loadShaders() = 0;
         virtual void render(VkCommandBuffer cmdBuffer);
+
+        EngineResult<Buffer> allocateBuffer(VkBufferUsageFlagBits usage, uint64_t size, BufferType type = BufferType::UNIVERSAL);
 
     public:
         VkEngineApp();

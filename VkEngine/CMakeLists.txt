@@ -19,6 +19,10 @@ add_library(vkengine SHARED
     include/engine/EngineResult.hpp
     include/engine/ShaderModule.hpp
     src/engine/ShaderModule.cpp
+    include/engine/Buffer.hpp
+    src/engine/Buffer.cpp
+    include/engine/MemoryType.hpp
+    src/engine/MemoryType.cpp
 )
 
 target_link_libraries(vkengine PUBLIC ${Vulkan_LIBRARIES} ${SDL2_LIBRARIES})

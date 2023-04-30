@@ -33,6 +33,7 @@ namespace vke {
         TRY(createCommandBuffers());
         TRY(createSemaphores());
         TRY(createFences());
+        setMemoryTypes();
 
         return utils::Result<void, EngineError>::ok();
     }
@@ -69,6 +70,16 @@ namespace vke {
     void VkEngineApp::cleanup() {
         // Finish whatever device is doing right now before cleanup
         vkDeviceWaitIdle(mDevice);
+
+        for (VkBuffer buffer : mBuffers) {
+            vkDestroyBuffer(mDevice, buffer, nullptr);
+        }
+        mBuffers.clear();
+
+        for (VkDeviceMemory memory : mMemoryAllocations) {
+            vkFreeMemory(mDevice, memory, nullptr);
+        }
+        mMemoryAllocations.clear();
 
         for (VkSemaphore semaphore : mFrameSemaphores) {
             vkDestroySemaphore(mDevice, semaphore, nullptr);
@@ -883,4 +894,111 @@ namespace vke {
     }
 
     void VkEngineApp::render(VkCommandBuffer cmdBuffer) {}
+
+    EngineResult<Buffer> VkEngineApp::allocateBuffer(VkBufferUsageFlagBits bufferUsage, uint64_t size, BufferType type) {
+        VkBufferCreateInfo createInfo{};
+        createInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+        createInfo.size = size;
+        createInfo.usage = bufferUsage;
+        createInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+        createInfo.queueFamilyIndexCount = 1;
+
+        uint32_t queueFamilyIndex = QueueFamilyIndexes::query(mPhysicalDevice, mSurface).getGraphics();
+        createInfo.pQueueFamilyIndices = &queueFamilyIndex;
+
+        VkBuffer buffer;
+        if (VkResult result = vkCreateBuffer(mDevice, &createInfo, nullptr, &buffer)) {
+            return EngineResult<Buffer>::error(EngineError::fromVkError(result));
+        }
+        mBuffers.push_back(buffer);
+
+        VkMemoryRequirements requirements;
+        vkGetBufferMemoryRequirements(mDevice, buffer, &requirements);
+
+        MemoryType memType;
+        switch (type) {
+            case BufferType::SPEEDY:
+                memType = mSpeedyMemType;
+                break;
+            case BufferType::STAGING:
+                memType = mStagingMemType;
+                break;
+            case BufferType::UNIVERSAL:
+                memType = mUniversalMemType;
+                break;
+        }
+
+        uint32_t typeIndex = memType.getTypeIndex();
+
+        if (!((requirements.memoryTypeBits >> typeIndex) & 1)) {
+            std::cout << "[ENGINE] [WARN]: No memory type supports this buffer (" << buffer << ")\n";
+        }
+
+        VkDeviceMemory memory;
+        VkMemoryAllocateInfo allocateInfo{};
+        allocateInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+        allocateInfo.allocationSize = requirements.size;
+        allocateInfo.memoryTypeIndex = typeIndex;
+        vkAllocateMemory(mDevice, &allocateInfo, nullptr, &memory);
+        mMemoryAllocations.push_back(memory);
+
+        vkBindBufferMemory(mDevice, buffer, memory, 0);
+
+        return Buffer(mDevice, buffer, memory, size, memType.isHostCoherent());
+    }
+
+    void VkEngineApp::setMemoryTypes() {
+        VkPhysicalDeviceMemoryProperties memoryProperties;
+        vkGetPhysicalDeviceMemoryProperties(mPhysicalDevice, &memoryProperties);
+
+        uint32_t speedyMemoryTypeIndex = VK_MAX_MEMORY_TYPES + 1;
+        VkDeviceSize speedyMemorySize;
+        uint32_t stagingMemoryTypeIndex = VK_MAX_MEMORY_TYPES + 1;
+        VkDeviceSize stagingMemorySize = 0;
+        bool stagingMemoryCoherent = false;
+        uint32_t universalMemoryTypeIndex = VK_MAX_MEMORY_TYPES + 1;
+        VkDeviceSize universalMemorySize = 0;
+        bool universalMemoryCoherent = false;
+
+        for (size_t i = 0; i < memoryProperties.memoryTypeCount; i++) {
+            VkMemoryType type = memoryProperties.memoryTypes[i];
+            VkMemoryHeap heap = memoryProperties.memoryHeaps[type.heapIndex];
+
+            if (type.propertyFlags == 0)
+                continue;
+
+            if ((type.propertyFlags & ~VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT) == 0) {
+                if (heap.size > speedyMemorySize) {
+                    speedyMemoryTypeIndex = i;
+                    speedyMemorySize = heap.size;
+                }
+            }
+
+            if (type.propertyFlags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) {
+                if (heap.size > stagingMemorySize) {
+                    stagingMemoryTypeIndex = i;
+                    stagingMemorySize = heap.size;
+                    stagingMemoryCoherent = (bool)(type.propertyFlags & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+                }
+            }
+
+            if (type.propertyFlags & (VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT)) {
+                if (heap.size > universalMemorySize) {
+                    universalMemoryTypeIndex = i;
+                    universalMemorySize = heap.size;
+                    universalMemoryCoherent = (bool)(type.propertyFlags & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+                }
+            }
+
+        }
+
+        if (universalMemoryTypeIndex == VK_MAX_MEMORY_TYPES + 1) {
+            universalMemoryTypeIndex = stagingMemoryTypeIndex;
+            universalMemoryCoherent = stagingMemoryCoherent;
+        }
+
+        mSpeedyMemType = MemoryType(speedyMemoryTypeIndex, false);
+        mStagingMemType = MemoryType(stagingMemoryTypeIndex, stagingMemoryCoherent);
+        mUniversalMemType = MemoryType(universalMemoryTypeIndex, universalMemoryCoherent);
+    }
 }
