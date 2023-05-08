@@ -91,6 +91,7 @@ namespace vke {
         virtual int rankPhysicalDevice(VkPhysicalDevice device, VkPhysicalDeviceProperties properties, VkPhysicalDeviceFeatures features);
         virtual EngineResult<std::map<VkShaderStageFlagBits, ShaderFile>> loadShaders() = 0;
         virtual void render(VkCommandBuffer cmdBuffer);
+        virtual EngineResult<void> onInit();
 
         EngineResult<Buffer> allocateBuffer(VkBufferUsageFlagBits usage, uint64_t size, BufferType type = BufferType::UNIVERSAL);
 

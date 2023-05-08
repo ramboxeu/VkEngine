@@ -35,6 +35,8 @@ namespace vke {
         TRY(createFences());
         setMemoryTypes();
 
+        onInit();
+
         return utils::Result<void, EngineError>::ok();
     }
 
@@ -592,12 +594,33 @@ namespace vke {
             i++;
         }
 
+        VkVertexInputBindingDescription vertexInputBinding{};
+        vertexInputBinding.binding = 0;
+        vertexInputBinding.stride = sizeof(float) * 6;
+        vertexInputBinding.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+
+        VkVertexInputAttributeDescription vertexPositionAttribute{};
+        vertexPositionAttribute.location = 0;
+        vertexPositionAttribute.binding = 0;
+        vertexPositionAttribute.format = VK_FORMAT_R32G32B32_SFLOAT;
+        vertexPositionAttribute.offset = 0;
+
+        VkVertexInputAttributeDescription vertexColorAttribute{};
+        vertexColorAttribute.location = 1;
+        vertexColorAttribute.binding = 0;
+        vertexColorAttribute.format = VK_FORMAT_R32G32B32_SFLOAT;
+        vertexColorAttribute.offset = sizeof(float) * 3;
+
+        VkVertexInputAttributeDescription attributeDescriptions[] = {
+                vertexPositionAttribute, vertexColorAttribute
+        };
+
         VkPipelineVertexInputStateCreateInfo vertexInput{};
         vertexInput.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-        vertexInput.vertexBindingDescriptionCount = 0;
-        vertexInput.pVertexBindingDescriptions = nullptr;
-        vertexInput.vertexAttributeDescriptionCount = 0;
-        vertexInput.pVertexAttributeDescriptions = nullptr;
+        vertexInput.vertexBindingDescriptionCount = 1;
+        vertexInput.pVertexBindingDescriptions = &vertexInputBinding;
+        vertexInput.vertexAttributeDescriptionCount = 2;
+        vertexInput.pVertexAttributeDescriptions = attributeDescriptions;
 
         VkPipelineInputAssemblyStateCreateInfo inputAssembly{};
         inputAssembly.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
@@ -894,6 +917,10 @@ namespace vke {
     }
 
     void VkEngineApp::render(VkCommandBuffer cmdBuffer) {}
+
+    EngineResult<void> VkEngineApp::onInit() {
+        return {};
+    }
 
     EngineResult<Buffer> VkEngineApp::allocateBuffer(VkBufferUsageFlagBits bufferUsage, uint64_t size, BufferType type) {
         VkBufferCreateInfo createInfo{};
